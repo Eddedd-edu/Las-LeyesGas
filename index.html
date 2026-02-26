@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>TermoQuest: Leyes de los Gases</title>
+    <style>
+        :root {
+            --bg-color: #1a1b26; --panel-bg: #24283b; --text-color: #c0caf5;
+            --gas-a: #f7768e; --gas-b: #7dcfff; --piston: #9ece6a;
+            --correct: #73daca; --error: #f7768e; --warning: #ff9e64;
+            --btn-bg: #414868; --btn-hover: #565f89; --accent: #7aa2f7;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color); color: var(--text-color);
+            margin: 0; padding: 15px; display: flex; flex-direction: column; align-items: center;
+            touch-action: manipulation;
+        }
+
+        header { text-align: center; width: 100%; max-width: 1200px; margin-bottom: 15px; }
+        h1 { margin: 0 0 5px 0; color: var(--accent); font-size: 1.8rem; }
+        #subtitle { margin: 0 0 15px 0; font-size: 1rem; opacity: 0.8; }
+        
+        .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; width: 100%; }
+        .controls button {
+            background-color: var(--accent); color: #1a1b26; border: none; padding: 10px 15px;
+            border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 0.95rem;
+            flex: 1 1 auto; min-width: 100px; max-width: 180px; transition: transform 0.1s;
+        }
+        .controls button:active { transform: scale(0.95); }
+        button.btn-special { background-color: #e0af68; }
+
+        #mission-panel { display: none; width: 100%; max-width: 800px; background: #1a1b26; border: 2px solid var(--correct); padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .mission-title { color: var(--correct); font-size: 1.1rem; margin: 0 0 5px 0; text-transform: uppercase; }
+        .mission-text { font-size: 1.2rem; font-weight: bold; margin: 0 0 15px 0; line-height: 1.3; color: #fff;}
+        .mission-stats { display: flex; justify-content: space-around; align-items: center; background: var(--panel-bg); padding: 10px; border-radius: 8px; font-weight: bold;}
+
+        #records-panel { display: none; width: 100%; max-width: 500px; background: #1a1b26; border: 2px solid var(--warning); padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .record-list { list-style: none; padding: 0; text-align: left; margin-bottom: 10px; }
+        .record-list li { background: var(--panel-bg); margin-bottom: 5px; padding: 10px 15px; border-radius: 8px; display: flex; justify-content: space-between; font-weight: bold; font-size: 1.1rem; border-left: 4px solid var(--warning); }
+
+        #simulator-section { display: flex; width: 100%; max-width: 1300px; gap: 15px; justify-content: center; align-items: flex-start; flex-wrap: wrap; }
+        .panel { background: var(--panel-bg); padding: 15px; border-radius: 12px; flex: 1; min-width: 300px; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        
+        .canvas-container { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; }
+        canvas { background: #14151f; border-radius: 10px; border: 2px solid #3b4261; box-shadow: inset 0 0 20px rgba(0,0,0,0.8); }
+        #flame { width: 100%; height: 15px; border-radius: 5px; margin-top: 5px; transition: background 0.3s; }
+        .law-indicator { margin-top: 10px; font-weight: bold; color: var(--warning); text-align: center; font-size: 1.1rem; padding: 5px 10px; background: rgba(255,158,100,0.1); border-radius: 5px; width: 100%;}
+
+        .math-panel { background: #1a1b26; border: 2px dashed #565f89; border-radius: 10px; padding: 15px; margin-top: 15px; width: 100%; text-align: center; }
+        .math-title { color: var(--accent); font-size: 1rem; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; font-weight: bold;}
+        .math-formula { font-size: 1.5rem; font-family: 'Courier New', Courier, monospace; color: var(--correct); font-weight: bold; margin-bottom: 8px; }
+        .math-calc { font-size: 1.2rem; color: var(--text-color); margin-bottom: 8px; }
+        .math-result { font-size: 1.3rem; font-weight: bold; color: var(--warning); background: rgba(255,158,100,0.1); padding: 5px; border-radius: 5px; display: inline-block;}
+
+        .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
+        .data-box { background: #1a1b26; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #3b4261; }
+        .data-box span { display: block; font-size: 1.6rem; font-weight: 800; margin-top: 5px; color: var(--correct); transition: color 0.3s;}
+        .data-box small { opacity: 0.7; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;}
+
+        .control-group { margin-bottom: 12px; background: #1a1b26; padding: 10px; border-radius: 10px; }
+        .control-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; }
+        .lock-btn { background: transparent; color: var(--text-color); border: 1px solid #565f89; padding: 4px 8px; border-radius: 5px; font-size: 0.8rem; cursor: pointer; }
+        .lock-btn.locked { background: var(--error); color: white; border-color: var(--error); }
+
+        .counter-wrapper { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .btn-hold {
+            width: 45px; height: 45px; font-size: 1.5rem; font-weight: bold;
+            background: var(--btn-bg); color: white; border: none; border-radius: 10px;
+            display: flex; justify-content: center; align-items: center;
+            cursor: pointer; user-select: none; -webkit-user-select: none;
+        }
+        .btn-hold:active { background: var(--btn-hover); transform: scale(0.95); }
+
+        .mole-fraction { display: flex; align-items: center; height: 25px; border-radius: 5px; overflow: hidden; margin-top: 10px; background: #3b4261;}
+        .frac-a { height: 100%; background: var(--gas-a); transition: width 0.3s; display: flex; align-items: center; padding-left: 5px; font-size: 0.8rem; font-weight:bold; color: #1a1b26;}
+        .frac-b { height: 100%; background: var(--gas-b); transition: width 0.3s; display: flex; align-items: center; justify-content: flex-end; padding-right: 5px; font-size: 0.8rem; font-weight:bold; color: #1a1b26;}
+
+        @media (max-width: 768px) {
+            #simulator-section { flex-direction: column; }
+            .panel { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>TermoQuest</h1>
+        <p id="subtitle">Simulador de Gases Ideales</p>
+        <div class="controls">
+            <button onclick="setMode('libre')" class="btn-special">⚛️ Modo Libre</button>
+            <button onclick="startMissions()" style="background-color: var(--correct); color: #1a1b26;">🎯 Misiones Exactas</button>
+            <button onclick="toggleRecords()" style="background-color: var(--warning); color: #1a1b26;">🏆 Top 5 Global</button>
+        </div>
+    </header>
+
+    <div id="mission-panel">
+        <h3 class="mission-title">Misión en Curso</h3>
+        <p class="mission-text" id="mission-desc">-</p>
+        <div class="mission-stats">
+            <div>Prog: <span id="mission-tracker" style="color:var(--gas-b)">0/5</span></div>
+            <div>⏱️ <span id="time-display" style="color:var(--warning)">120</span>s</div>
+        </div>
+    </div>
+
+    <div id="records-panel">
+        <h3 class="mission-title" style="color:var(--warning)">Salón de la Fama (Global)</h3>
+        <ul class="record-list" id="record-list"></ul>
+        <button onclick="toggleRecords()" style="background-color: var(--btn-bg); border: none; padding: 8px 20px; border-radius: 5px; color: white; cursor: pointer; font-weight: bold;">Cerrar Récords</button>
+    </div>
+
+    <div id="simulator-section">
+        <div class="panel canvas-container">
+            <canvas id="gasCanvas" width="280" height="280"></canvas>
+            <div id="flame" style="background: linear-gradient(90deg, #24283b, #24283b);"></div>
+            <div id="law-display" class="law-indicator">Ley de los Gases Ideales</div>
+            
+            <div class="math-panel">
+                <div class="math-title">Comprobación Matemática</div>
+                <div id="math-formula" class="math-formula">P × V = nRT</div>
+                <div id="math-calc" class="math-calc">1.00 × 22.4 = 1.0 × 0.082 × 273</div>
+                <div id="math-result" class="math-result">22.40 ≈ 22.40</div>
+            </div>
+
+            <div style="width: 100%; margin-top: 15px; background: #1a1b26; padding: 10px; border-radius: 8px;">
+                <div class="control-header" style="margin: 0;">Mezcla de Gases (Fracción Molar)</div>
+                <div class="mole-fraction">
+                    <div id="bar-a" class="frac-a" style="width: 100%;">Xa 1.00</div>
+                    <div id="bar-b" class="frac-b" style="width: 0%;">Xb 0.00</div>
+                </div>
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 5px; color:#a9b1d6; font-weight: bold;">
+                    <span id="pa-display">Pa: 1.00 atm</span>
+                    <span id="pb-display">Pb: 0.00 atm</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <div class="data-grid">
+                <div class="data-box"><small>Presión (P)</small><span id="val-p">1.00</span><small>atm</small></div>
+                <div class="data-box"><small>Volumen (V)</small><span id="val-v" style="color:var(--gas-b)">22.4</span><small>Litros</small></div>
+                <div class="data-box"><small>Temperatura (T)</small><span id="val-t" style="color:var(--warning)">273</span><small>Kelvin</small></div>
+                <div class="data-box"><small>Moles (n)</small><span id="val-n" style="color:var(--piston)">1.0</span><small>Totales</small></div>
+            </div>
+
+            <p style="font-size: 0.8rem; color: #7aa2f7; text-align: center; margin-bottom: 8px;">Bloquea una variable 🔒 para activar una Ley.</p>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <span style="color:var(--correct)">Presión (P)</span>
+                    <button class="lock-btn" id="lock-P" onclick="toggleLock('P')">🔓 Desbloqueado</button>
+                </div>
+                <div class="counter-wrapper">
+                    <button class="btn-hold" onmousedown="startAdjust('P', -0.05)" ontouchstart="startAdjust('P', -0.05)">-</button>
+                    <button class="btn-hold" onmousedown="startAdjust('P', 0.05)" ontouchstart="startAdjust('P', 0.05)">+</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <span style="color:var(--warning)">Temperatura (T)</span>
+                    <button class="lock-btn" id="lock-T" onclick="toggleLock('T')">🔓 Desbloqueado</button>
+                </div>
+                <div class="counter-wrapper">
+                    <button class="btn-hold" onmousedown="startAdjust('T', -2)" ontouchstart="startAdjust('T', -2)">-</button>
+                    <button class="btn-hold" onmousedown="startAdjust('T', 2)" ontouchstart="startAdjust('T', 2)">+</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">
+                    <span style="color:var(--gas-b)">Volumen (V)</span>
+                    <button class="lock-btn" id="lock-V" onclick="toggleLock('V')">🔓 Desbloqueado</button>
+                </div>
+                <div class="counter-wrapper">
+                    <button class="btn-hold" onmousedown="startAdjust('V', -0.2)" ontouchstart="startAdjust('V', -0.2)">-</button>
+                    <button class="btn-hold" onmousedown="startAdjust('V', 0.2)" ontouchstart="startAdjust('V', 0.2)">+</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <div class="control-header">Inyectar Gas (n)</div>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn-hold" style="flex:1; background:var(--gas-a); color:#000; font-size:1.1rem;" onmousedown="startAdjust('nA', 0.05)" ontouchstart="startAdjust('nA', 0.05)">+ Rojo</button>
+                    <button class="btn-hold" style="flex:1; background:var(--gas-b); color:#000; font-size:1.1rem;" onmousedown="startAdjust('nB', 0.05)" ontouchstart="startAdjust('nB', 0.05)">+ Azul</button>
+                </div>
+                <button style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--error); color: var(--error); padding: 8px; border-radius: 5px; cursor:pointer;" onclick="resetGases()">Extraer todo el gas</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let state = { P: 1.0, V: 22.4, T: 273, nA: 1.0, nB: 0.0 };
+        const R = 0.08206; 
+        let lockedVar = 'none';
+        let gameActive = false, currentMission = 0, timeLeft = 120, timer, totalScore = 0;
+
+        const missions = [
+            { text: "LEY DE BOYLE: Bloquea T. Reduce el Volumen a 11.2 L. Presión debe ser 2.00 atm.", check: () => Math.abs(state.V - 11.2) < 0.1 && Math.abs(state.P - 2.0) < 0.05 && lockedVar === 'T' },
+            { text: "LEY DE CHARLES: Bloquea P. Calienta el gas a 546 K. Volumen debe ser 44.8 L.", check: () => Math.abs(state.T - 546) < 2 && Math.abs(state.V - 44.8) < 0.2 && lockedVar === 'P' },
+            { text: "LEY DE GAY-LUSSAC: Bloquea V. Enfría el gas a 136 K. Presión debe caer a ~0.50 atm.", check: () => Math.abs(state.T - 136) < 3 && Math.abs(state.P - 0.5) < 0.05 && lockedVar === 'V' },
+            { text: "FRACCIÓN MOLAR: Consigue 2.0 moles en total, donde el gas Azul tenga exactamente Xb = 0.50.", check: () => { let n = state.nA + state.nB; return Math.abs(n - 2.0) < 0.05 && Math.abs((state.nB/n) - 0.5) < 0.02; } },
+            { text: "GAS IDEAL LIBRE: Desbloquea todo. Ajusta n=1.5 moles y T=300 K para lograr V=36.9 L.", check: () => Math.abs(state.nA+state.nB - 1.5) < 0.05 && Math.abs(state.T - 300) < 2 && Math.abs(state.V - 36.9) < 0.5 && lockedVar === 'none' }
+        ];
+
+        let audioCtx;
+        function beep(f, d, type = 'sine') {
+            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+            o.frequency.value = f; o.type = type;
+            g.gain.setValueAtTime(0.05, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
+            o.connect(g); g.connect(audioCtx.destination);
+            o.start(); o.stop(audioCtx.currentTime + d);
+        }
+
+        function calculatePhysics(source, delta) {
+            let n = state.nA + state.nB;
+            if (n <= 0 && source !== 'nA' && source !== 'nB') return;
+            
+            if (source === 'T' && lockedVar !== 'T') {
+                let newT = Math.max(50, Math.min(1000, state.T + delta));
+                if (lockedVar === 'P') { 
+                    state.V = (n * R * newT) / state.P; 
+                } else if (lockedVar === 'V') {
+                    state.P = (n * R * newT) / state.V;
+                } else {
+                    state.P = (n * R * newT) / state.V;
+                }
+                state.T = newT;
+            } 
+            else if (source === 'V' && lockedVar !== 'V') {
+                let newV = Math.max(5, Math.min(50, state.V + delta));
+                if (lockedVar === 'P') {
+                    state.T = (state.P * newV) / (n * R);
+                } else if (lockedVar === 'T') {
+                    state.P = (n * R * state.T) / newV;
+                } else {
+                    state.P = (n * R * state.T) / newV;
+                }
+                state.V = newV;
+            }
+            else if (source === 'P' && lockedVar !== 'P') {
+                let newP = Math.max(0.1, Math.min(10, state.P + delta));
+                if (lockedVar === 'V') {
+                    state.T = (newP * state.V) / (n * R);
+                } else {
+                    state.V = (n * R * state.T) / newP;
+                }
+                state.P = newP;
+            }
+            else if (source === 'nA' || source === 'nB') {
+                state[source] = Math.max(0, Math.min(5, state[source] + delta));
+                n = state.nA + state.nB;
+                if (n > 0) {
+                    if (lockedVar === 'P') state.V = (n * R * state.T) / state.P;
+                    else state.P = (n * R * state.T) / state.V;
+                } else { state.P = 0; }
+                updateParticleCount();
+            }
+            
+            // Límites de seguridad para evitar explosiones visuales o errores
+            state.V = Math.max(5, Math.min(50, state.V));
+            state.T = Math.max(50, Math.min(1000, state.T));
+            
+            updateUI();
+            if (gameActive) checkMissionCompleted();
+        }
+
+        function toggleLock(variable) {
+            lockedVar = (lockedVar === variable) ? 'none' : variable;
+            ['P', 'V', 'T'].forEach(v => {
+                const btn = document.getElementById(`lock-${v}`);
+                if(v === lockedVar) { btn.innerText = "🔒 Bloqueado"; btn.classList.add('locked'); }
+                else { btn.innerText = "🔓 Desbloqueado"; btn.classList.remove('locked'); }
+            });
+            updateUI();
+        }
+
+        function updateUI() {
+            let n = state.nA + state.nB;
+            document.getElementById('val-p').innerText = state.P.toFixed(2);
+            document.getElementById('val-v').innerText = state.V.toFixed(1);
+            document.getElementById('val-t').innerText = Math.round(state.T);
+            document.getElementById('val-n').innerText = n.toFixed(1);
+
+            let formula = "", calc = "", result = "";
+            let pStr = state.P.toFixed(2), vStr = state.V.toFixed(1), tStr = Math.round(state.T), nStr = n.toFixed(1);
+
+            if(n === 0) { formula = "Vacío"; calc = "Inyecta gas"; document.getElementById('law-display').innerText = "Cámara Vacía"; } 
+            else if (lockedVar === 'T') { formula = "P × V = k (Boyle)"; calc = `${pStr} × ${vStr}`; result = `k = ${(state.P * state.V).toFixed(1)}`; document.getElementById('law-display').innerText = "Ley de Boyle (T Constante)"; } 
+            else if (lockedVar === 'P') { formula = "V / T = k (Charles)"; calc = `${vStr} / ${tStr}`; result = `k = ${(state.V / state.T).toFixed(4)}`; document.getElementById('law-display').innerText = "Ley de Charles (P Constante)"; } 
+            else if (lockedVar === 'V') { formula = "P / T = k (Gay-Lussac)"; calc = `${pStr} / ${tStr}`; result = `k = ${(state.P / state.T).toFixed(4)}`; document.getElementById('law-display').innerText = "Ley de Gay-Lussac (V Constante)"; } 
+            else { formula = "P × V = nRT"; calc = `${pStr}×${vStr} = ${nStr}×R×${tStr}`; result = `${(state.P*state.V).toFixed(1)} ≈ ${(n*R*state.T).toFixed(1)}`; document.getElementById('law-display').innerText = "Ley de los Gases Ideales"; }
+
+            document.getElementById('math-formula').innerText = formula; document.getElementById('math-calc').innerText = calc; document.getElementById('math-result').innerText = result;
+
+            let xa = n > 0 ? state.nA / n : 0; let xb = n > 0 ? state.nB / n : 0;
+            document.getElementById('bar-a').style.width = `${xa * 100}%`; document.getElementById('bar-b').style.width = `${xb * 100}%`;
+            document.getElementById('bar-a').innerText = xa > 0.1 ? `Xa ${xa.toFixed(2)}` : ''; document.getElementById('bar-b').innerText = xb > 0.1 ? `Xb ${xb.toFixed(2)}` : '';
+            document.getElementById('pa-display').innerText = `Pa: ${(xa * state.P).toFixed(2)} atm`; document.getElementById('pb-display').innerText = `Pb: ${(xb * state.P).toFixed(2)} atm`;
+
+            const flame = document.getElementById('flame');
+            if (state.T <= 200) flame.style.background = `linear-gradient(90deg, #7dcfff, #1a1b26, #7dcfff)`;
+            else if (state.T > 450) flame.style.background = `linear-gradient(90deg, #f7768e, #ff9e64, #f7768e)`;
+            else flame.style.background = `linear-gradient(90deg, #24283b, #24283b)`;
+        }
+
+        // --- LÓGICA DE ACELERACIÓN (MODIFICADO) ---
+        let holdTimer = null;
+        let holdStartTime = 0;
+
+        function startAdjust(variable, delta) {
+            if(event && event.cancelable) event.preventDefault(); 
+            holdStartTime = Date.now();
+            beep(600, 0.05);
+
+            const tick = () => {
+                const elapsed = Date.now() - holdStartTime;
+                let multiplier = 1;
+                
+                // Rampas de aceleración
+                if (elapsed > 3000) multiplier = 10; // Súper rápido tras 3s
+                else if (elapsed > 1000) multiplier = 4; // Rápido tras 1s
+                
+                calculatePhysics(variable, delta * multiplier);
+                
+                // El intervalo se hace más corto para suavidad
+                let nextTick = elapsed > 1000 ? 50 : 120;
+                holdTimer = setTimeout(tick, nextTick);
+            };
+
+            tick();
+
+            const stopAdjust = () => { 
+                clearTimeout(holdTimer); 
+                document.removeEventListener('mouseup', stopAdjust); 
+                document.removeEventListener('touchend', stopAdjust); 
+            };
+            document.addEventListener('mouseup', stopAdjust);
+            document.addEventListener('touchend', stopAdjust);
+        }
+
+        const canvas = document.getElementById('gasCanvas'); const ctx = canvas.getContext('2d'); let particles = [];
+        function updateParticleCount() {
+            const targetA = Math.floor(state.nA * 20); const targetB = Math.floor(state.nB * 20);
+            let currentA = particles.filter(p => p.type === 'A').length; let currentB = particles.filter(p => p.type === 'B').length;
+            while (currentA < targetA) { particles.push(createParticle('A', '#f7768e')); currentA++; }
+            while (currentA > targetA) { const i = particles.findIndex(p => p.type === 'A'); particles.splice(i, 1); currentA--; }
+            while (currentB < targetB) { particles.push(createParticle('B', '#7dcfff')); currentB++; }
+            while (currentB > targetB) { const i = particles.findIndex(p => p.type === 'B'); particles.splice(i, 1); currentB--; }
+        }
+
+        function createParticle(type, color) { return { x: Math.random() * (canvas.width - 20) + 10, y: Math.random() * (canvas.height - 100) + 50, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, type: type, color: color, radius: 4 }; }
+
+        function drawCanvas() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            let pistonY = canvas.height - (state.V / 50) * (canvas.height - 40); pistonY = Math.max(20, Math.min(canvas.height - 30, pistonY));
+            ctx.fillStyle = "#9ece6a"; ctx.fillRect(5, pistonY, canvas.width - 10, 15); ctx.fillStyle = "#414868"; ctx.fillRect(canvas.width/2 - 5, 0, 10, pistonY);
+            let speedMult = Math.sqrt(state.T) * 0.15;
+            particles.forEach(p => {
+                p.x += p.vx * speedMult; p.y += p.vy * speedMult;
+                if (p.x < p.radius || p.x > canvas.width - p.radius) p.vx *= -1; if (p.y > canvas.height - p.radius) p.vy *= -1; 
+                if (p.y < pistonY + 15 + p.radius) { p.y = pistonY + 15 + p.radius; p.vy = Math.abs(p.vy); }
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
+            }); requestAnimationFrame(drawCanvas);
+        }
+
+        function resetGases() { state.nA = 0; state.nB = 0; state.P = 0; updateParticleCount(); updateUI(); }
+        function setMode(mode) { gameActive = false; clearInterval(timer); document.getElementById('mission-panel').style.display = 'none'; document.getElementById('records-panel').style.display = 'none'; }
+        function toggleRecords() { const panel = document.getElementById('records-panel'); panel.style.display = panel.style.display === 'block' ? 'none' : 'block'; if(panel.style.display === 'block') updateRecordsUI(); }
+
+        async function updateRecordsUI() {
+            const list = document.getElementById('record-list');
+            list.innerHTML = '<li>Cargando...</li>';
+            try {
+                const response = await fetch('/.netlify/functions/records');
+                const records = await response.json();
+                list.innerHTML = records.map((r, i) => `<li><span>${i+1}. ${r.name}</span><span style="color:var(--correct)">${r.score} pts</span></li>`).join('');
+            } catch (e) { list.innerHTML = '<li>No se pudieron cargar los récords globales.</li>'; }
+        }
+
+        function startMissions() {
+            gameActive = true; currentMission = 0; totalScore = 0;
+            document.getElementById('mission-panel').style.display = 'block';
+            state = { P: 1.0, V: 22.4, T: 273, nA: 1.0, nB: 0.0 };
+            toggleLock('none'); updateParticleCount(); updateUI(); loadMission();
+        }
+
+        function loadMission() {
+            if (currentMission >= missions.length) { alert("¡Felicidades! Puntuación final: " + totalScore); setMode('libre'); return; }
+            document.getElementById('mission-desc').innerText = missions[currentMission].text;
+            document.getElementById('mission-tracker').innerText = `${currentMission + 1}/${missions.length}`;
+            timeLeft = 120;
+            clearInterval(timer);
+            timer = setInterval(() => {
+                timeLeft--; document.getElementById('time-display').innerText = timeLeft;
+                if (timeLeft <= 0) { alert("Tiempo agotado"); setMode('libre'); }
+            }, 1000);
+        }
+
+        function checkMissionCompleted() {
+            if (missions[currentMission].check()) {
+                totalScore += timeLeft;
+                beep(800, 0.1);
+                currentMission++;
+                loadMission();
+            }
+        }
+
+        updateParticleCount(); updateUI(); requestAnimationFrame(drawCanvas);
+    </script>
+</body>
+</html>
