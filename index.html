@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TermoQuest: Leyes de los Gases</title>
+    <title>TermoQuest: Leyes de los Gases + Firebase</title>
     <style>
         :root {
             --bg-color: #1a1b26; --panel-bg: #24283b; --text-color: #c0caf5;
@@ -59,8 +59,8 @@
 
         .data-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 15px; }
         .data-box { background: #1a1b26; padding: 10px; border-radius: 8px; text-align: center; border: 1px solid #3b4261; }
-        .data-box span { display: block; font-size: 1.6rem; font-weight: 800; margin-top: 5px; color: var(--correct); transition: color 0.3s;}
-        .data-box small { opacity: 0.7; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px;}
+        .data-box span { display: block; font-size: 1.6rem; font-weight: 800; margin-top: 5px; color: var(--correct); }
+        .data-box small { opacity: 0.7; font-size: 0.8rem; text-transform: uppercase; }
 
         .control-group { margin-bottom: 12px; background: #1a1b26; padding: 10px; border-radius: 10px; }
         .control-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; font-weight: bold; }
@@ -72,9 +72,8 @@
             width: 45px; height: 45px; font-size: 1.5rem; font-weight: bold;
             background: var(--btn-bg); color: white; border: none; border-radius: 10px;
             display: flex; justify-content: center; align-items: center;
-            cursor: pointer; user-select: none; -webkit-user-select: none;
+            cursor: pointer; user-select: none;
         }
-        .btn-hold:active { background: var(--btn-hover); transform: scale(0.95); }
 
         .mole-fraction { display: flex; align-items: center; height: 25px; border-radius: 5px; overflow: hidden; margin-top: 10px; background: #3b4261;}
         .frac-a { height: 100%; background: var(--gas-a); transition: width 0.3s; display: flex; align-items: center; padding-left: 5px; font-size: 0.8rem; font-weight:bold; color: #1a1b26;}
@@ -108,15 +107,15 @@
     </div>
 
     <div id="records-panel">
-        <h3 class="mission-title" style="color:var(--warning)">Salón de la Fama (Global)</h3>
+        <h3 class="mission-title" style="color:var(--warning)">Salón de la Fama (Firestore)</h3>
         <ul class="record-list" id="record-list"></ul>
-        <button onclick="toggleRecords()" style="background-color: var(--btn-bg); border: none; padding: 8px 20px; border-radius: 5px; color: white; cursor: pointer; font-weight: bold;">Cerrar Récords</button>
+        <button onclick="toggleRecords()" style="background-color: var(--btn-bg); border: none; padding: 8px 20px; border-radius: 5px; color: white; cursor: pointer; font-weight: bold;">Cerrar</button>
     </div>
 
     <div id="simulator-section">
         <div class="panel canvas-container">
             <canvas id="gasCanvas" width="280" height="280"></canvas>
-            <div id="flame" style="background: linear-gradient(90deg, #24283b, #24283b);"></div>
+            <div id="flame"></div>
             <div id="law-display" class="law-indicator">Ley de los Gases Ideales</div>
             
             <div class="math-panel">
@@ -188,69 +187,158 @@
                     <button class="btn-hold" style="flex:1; background:var(--gas-a); color:#000; font-size:1.1rem;" onmousedown="startAdjust('nA', 0.05)" ontouchstart="startAdjust('nA', 0.05)">+ Rojo</button>
                     <button class="btn-hold" style="flex:1; background:var(--gas-b); color:#000; font-size:1.1rem;" onmousedown="startAdjust('nB', 0.05)" ontouchstart="startAdjust('nB', 0.05)">+ Azul</button>
                 </div>
-                <button style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--error); color: var(--error); padding: 8px; border-radius: 5px; cursor:pointer;" onclick="resetGases()">Extraer todo el gas</button>
+                <button style="width: 100%; margin-top: 10px; background: transparent; border: 1px solid var(--error); color: var(--error); padding: 8px; border-radius: 5px; cursor:pointer;" onclick="resetGases()">Extraer todo</button>
             </div>
         </div>
     </div>
 
-    <script>
+    <script type="module">
+        // --- CONFIGURACIÓN FIREBASE ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
+        import { getFirestore, collection, addDoc, getDocs, query, orderBy, limit } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCw4JnCCFHVogAEXncodxi9jnwigO7qUIA",
+            authDomain: "quimicaquest.firebaseapp.com",
+            projectId: "quimicaquest",
+            storageBucket: "quimicaquest.firebasestorage.app",
+            messagingSenderId: "796534851347",
+            appId: "1:796534851347:web:ae85716a8b612d889b3ce6",
+            measurementId: "G-XJP89X1R9K"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+
+        // --- LÓGICA DEL SIMULADOR ---
         let state = { P: 1.0, V: 22.4, T: 273, nA: 1.0, nB: 0.0 };
         const R = 0.08206; 
         let lockedVar = 'none';
         let gameActive = false, currentMission = 0, timeLeft = 120, timer, totalScore = 0;
 
         const missions = [
-            { text: "LEY DE BOYLE: Bloquea T. Reduce el Volumen a 11.2 L. Presión debe ser 2.00 atm.", check: () => Math.abs(state.V - 11.2) < 0.1 && Math.abs(state.P - 2.0) < 0.05 && lockedVar === 'T' },
-            { text: "LEY DE CHARLES: Bloquea P. Calienta el gas a 546 K. Volumen debe ser 44.8 L.", check: () => Math.abs(state.T - 546) < 2 && Math.abs(state.V - 44.8) < 0.2 && lockedVar === 'P' },
-            { text: "LEY DE GAY-LUSSAC: Bloquea V. Enfría el gas a 136 K. Presión debe caer a ~0.50 atm.", check: () => Math.abs(state.T - 136) < 3 && Math.abs(state.P - 0.5) < 0.05 && lockedVar === 'V' },
-            { text: "FRACCIÓN MOLAR: Consigue 2.0 moles en total, donde el gas Azul tenga exactamente Xb = 0.50.", check: () => { let n = state.nA + state.nB; return Math.abs(n - 2.0) < 0.05 && Math.abs((state.nB/n) - 0.5) < 0.02; } },
-            { text: "GAS IDEAL LIBRE: Desbloquea todo. Ajusta n=1.5 moles y T=300 K para lograr V=36.9 L.", check: () => Math.abs(state.nA+state.nB - 1.5) < 0.05 && Math.abs(state.T - 300) < 2 && Math.abs(state.V - 36.9) < 0.5 && lockedVar === 'none' }
+            { text: "LEY DE BOYLE: Bloquea T. Reduce el Volumen a 11.2 L. La presión subirá a 2.00 atm.", check: () => Math.abs(state.V - 11.2) < 0.1 && Math.abs(state.P - 2.0) < 0.05 && lockedVar === 'T' },
+            { text: "LEY DE CHARLES: Bloquea P. Calienta el gas a 546 K. El volumen debe duplicarse a 44.8 L.", check: () => Math.abs(state.T - 546) < 2 && Math.abs(state.V - 44.8) < 0.2 && lockedVar === 'P' },
+            { text: "LEY DE GAY-LUSSAC: Bloquea V. Enfría el gas a 136 K. La presión debe caer a 0.50 atm.", check: () => Math.abs(state.T - 136) < 3 && Math.abs(state.P - 0.5) < 0.05 && lockedVar === 'V' },
+            { text: "FRACCIÓN MOLAR: Inyecta gas hasta tener 2.0 moles totales, con Xb (Azul) exactamente en 0.50.", check: () => { let n = state.nA + state.nB; return Math.abs(n - 2.0) < 0.05 && Math.abs((state.nB/n) - 0.5) < 0.02; } },
+            { text: "GAS IDEAL LIBRE: Desbloquea todo. Con n=1.5 y T=300 K, ajusta la presión para lograr V=36.9 L.", check: () => Math.abs(state.nA+state.nB - 1.5) < 0.05 && Math.abs(state.T - 300) < 2 && Math.abs(state.V - 36.9) < 0.5 && lockedVar === 'none' }
         ];
 
-        let audioCtx;
-        function beep(f, d, type = 'sine') {
-            if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            const o = audioCtx.createOscillator(), g = audioCtx.createGain();
-            o.frequency.value = f; o.type = type;
-            g.gain.setValueAtTime(0.05, audioCtx.currentTime);
-            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + d);
-            o.connect(g); g.connect(audioCtx.destination);
-            o.start(); o.stop(audioCtx.currentTime + d);
+        // --- FUNCIONES GLOBALES (Vinculadas a Window para HTML) ---
+        window.toggleLock = (variable) => {
+            lockedVar = (lockedVar === variable) ? 'none' : variable;
+            ['P', 'V', 'T'].forEach(v => {
+                const btn = document.getElementById(`lock-${v}`);
+                if(v === lockedVar) { btn.innerText = "🔒 Bloqueado"; btn.classList.add('locked'); }
+                else { btn.innerText = "🔓 Desbloqueado"; btn.classList.remove('locked'); }
+            });
+            updateUI();
+        };
+
+        window.setMode = (mode) => { 
+            gameActive = false; clearInterval(timer); 
+            document.getElementById('mission-panel').style.display = 'none'; 
+            document.getElementById('records-panel').style.display = 'none'; 
+        };
+
+        window.toggleRecords = async () => {
+            const panel = document.getElementById('records-panel');
+            if (panel.style.display === 'block') {
+                panel.style.display = 'none';
+            } else {
+                panel.style.display = 'block';
+                await updateRecordsUI();
+            }
+        };
+
+        async function updateRecordsUI() {
+            const list = document.getElementById('record-list');
+            list.innerHTML = '<li>Cargando desde Firebase...</li>';
+            try {
+                const q = query(collection(db, "records"), orderBy("score", "desc"), limit(5));
+                const querySnapshot = await getDocs(q);
+                list.innerHTML = '';
+                if (querySnapshot.empty) {
+                    list.innerHTML = '<li>No hay récords aún. ¡Sé el primero!</li>';
+                }
+                querySnapshot.forEach((doc) => {
+                    const r = doc.data();
+                    const li = document.createElement('li');
+                    li.innerHTML = `<span>${r.name}</span><span style="color:var(--correct)">${r.score} pts</span>`;
+                    list.appendChild(li);
+                });
+            } catch (e) { 
+                console.error(e);
+                list.innerHTML = '<li>Error al conectar con la base de datos.</li>'; 
+            }
         }
 
-        function calculatePhysics(source, delta) {
+        window.startMissions = () => {
+            gameActive = true; currentMission = 0; totalScore = 0;
+            document.getElementById('mission-panel').style.display = 'block';
+            state = { P: 1.0, V: 22.4, T: 273, nA: 1.0, nB: 0.0 };
+            window.toggleLock('none'); updateParticleCount(); updateUI(); loadMission();
+        };
+
+        async function saveScore(name, score) {
+            try {
+                await addDoc(collection(db, "records"), {
+                    name: name || "Anónimo",
+                    score: score,
+                    date: new Date()
+                });
+                alert("Puntuación guardada en la nube.");
+            } catch (e) {
+                console.error("Error al guardar:", e);
+            }
+        }
+
+        function loadMission() {
+            if (currentMission >= missions.length) { 
+                const userName = prompt(`¡Misiones completadas! Puntuación: ${totalScore}. Introduce tu nombre para el Top Global:`);
+                saveScore(userName, totalScore);
+                window.setMode('libre'); 
+                return; 
+            }
+            document.getElementById('mission-desc').innerText = missions[currentMission].text;
+            document.getElementById('mission-tracker').innerText = `${currentMission + 1}/${missions.length}`;
+            timeLeft = 120;
+            clearInterval(timer);
+            timer = setInterval(() => {
+                timeLeft--; document.getElementById('time-display').innerText = timeLeft;
+                if (timeLeft <= 0) { alert("¡Tiempo agotado!"); window.setMode('libre'); }
+            }, 1000);
+        }
+
+        function checkMissionCompleted() {
+            if (missions[currentMission].check()) {
+                totalScore += timeLeft;
+                currentMission++;
+                loadMission();
+            }
+        }
+
+        // --- FÍSICA Y CANVAS ---
+        window.calculatePhysics = (source, delta) => {
             let n = state.nA + state.nB;
             if (n <= 0 && source !== 'nA' && source !== 'nB') return;
             
             if (source === 'T' && lockedVar !== 'T') {
                 let newT = Math.max(50, Math.min(1000, state.T + delta));
-                if (lockedVar === 'P') { 
-                    state.V = (n * R * newT) / state.P; 
-                } else if (lockedVar === 'V') {
-                    state.P = (n * R * newT) / state.V;
-                } else {
-                    state.P = (n * R * newT) / state.V;
-                }
+                if (lockedVar === 'P') state.V = (n * R * newT) / state.P; 
+                else state.P = (n * R * newT) / state.V;
                 state.T = newT;
             } 
             else if (source === 'V' && lockedVar !== 'V') {
                 let newV = Math.max(5, Math.min(50, state.V + delta));
-                if (lockedVar === 'P') {
-                    state.T = (state.P * newV) / (n * R);
-                } else if (lockedVar === 'T') {
-                    state.P = (n * R * state.T) / newV;
-                } else {
-                    state.P = (n * R * state.T) / newV;
-                }
+                if (lockedVar === 'P') state.T = (state.P * newV) / (n * R);
+                else state.P = (n * R * state.T) / newV;
                 state.V = newV;
             }
             else if (source === 'P' && lockedVar !== 'P') {
                 let newP = Math.max(0.1, Math.min(10, state.P + delta));
-                if (lockedVar === 'V') {
-                    state.T = (newP * state.V) / (n * R);
-                } else {
-                    state.V = (n * R * state.T) / newP;
-                }
+                if (lockedVar === 'V') state.T = (newP * state.V) / (n * R);
+                else state.V = (n * R * state.T) / newP;
                 state.P = newP;
             }
             else if (source === 'nA' || source === 'nB') {
@@ -262,23 +350,10 @@
                 } else { state.P = 0; }
                 updateParticleCount();
             }
-            
-            // Límites de seguridad para evitar explosiones visuales o errores
             state.V = Math.max(5, Math.min(50, state.V));
             state.T = Math.max(50, Math.min(1000, state.T));
-            
             updateUI();
             if (gameActive) checkMissionCompleted();
-        }
-
-        function toggleLock(variable) {
-            lockedVar = (lockedVar === variable) ? 'none' : variable;
-            ['P', 'V', 'T'].forEach(v => {
-                const btn = document.getElementById(`lock-${v}`);
-                if(v === lockedVar) { btn.innerText = "🔒 Bloqueado"; btn.classList.add('locked'); }
-                else { btn.innerText = "🔓 Desbloqueado"; btn.classList.remove('locked'); }
-            });
-            updateUI();
         }
 
         function updateUI() {
@@ -307,112 +382,49 @@
             const flame = document.getElementById('flame');
             if (state.T <= 200) flame.style.background = `linear-gradient(90deg, #7dcfff, #1a1b26, #7dcfff)`;
             else if (state.T > 450) flame.style.background = `linear-gradient(90deg, #f7768e, #ff9e64, #f7768e)`;
-            else flame.style.background = `linear-gradient(90deg, #24283b, #24283b)`;
+            else flame.style.background = `none`;
         }
 
-        // --- LÓGICA DE ACELERACIÓN (MODIFICADO) ---
         let holdTimer = null;
-        let holdStartTime = 0;
-
-        function startAdjust(variable, delta) {
-            if(event && event.cancelable) event.preventDefault(); 
-            holdStartTime = Date.now();
-            beep(600, 0.05);
-
+        window.startAdjust = (variable, delta) => {
             const tick = () => {
-                const elapsed = Date.now() - holdStartTime;
-                let multiplier = 1;
-                
-                // Rampas de aceleración
-                if (elapsed > 3000) multiplier = 10; // Súper rápido tras 3s
-                else if (elapsed > 1000) multiplier = 4; // Rápido tras 1s
-                
-                calculatePhysics(variable, delta * multiplier);
-                
-                // El intervalo se hace más corto para suavidad
-                let nextTick = elapsed > 1000 ? 50 : 120;
-                holdTimer = setTimeout(tick, nextTick);
+                window.calculatePhysics(variable, delta);
+                holdTimer = setTimeout(tick, 50);
             };
-
             tick();
-
-            const stopAdjust = () => { 
-                clearTimeout(holdTimer); 
-                document.removeEventListener('mouseup', stopAdjust); 
-                document.removeEventListener('touchend', stopAdjust); 
-            };
-            document.addEventListener('mouseup', stopAdjust);
-            document.addEventListener('touchend', stopAdjust);
-        }
+            const stop = () => clearTimeout(holdTimer);
+            document.addEventListener('mouseup', stop, {once:true});
+            document.addEventListener('touchend', stop, {once:true});
+        };
 
         const canvas = document.getElementById('gasCanvas'); const ctx = canvas.getContext('2d'); let particles = [];
         function updateParticleCount() {
             const targetA = Math.floor(state.nA * 20); const targetB = Math.floor(state.nB * 20);
             let currentA = particles.filter(p => p.type === 'A').length; let currentB = particles.filter(p => p.type === 'B').length;
-            while (currentA < targetA) { particles.push(createParticle('A', '#f7768e')); currentA++; }
-            while (currentA > targetA) { const i = particles.findIndex(p => p.type === 'A'); particles.splice(i, 1); currentA--; }
-            while (currentB < targetB) { particles.push(createParticle('B', '#7dcfff')); currentB++; }
-            while (currentB > targetB) { const i = particles.findIndex(p => p.type === 'B'); particles.splice(i, 1); currentB--; }
+            while (currentA < targetA) { particles.push({ x: Math.random()*260+10, y: 150, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, type: 'A', color: '#f7768e', radius: 4 }); currentA++; }
+            while (currentA > targetA) { particles.splice(particles.findIndex(p => p.type === 'A'), 1); currentA--; }
+            while (currentB < targetB) { particles.push({ x: Math.random()*260+10, y: 150, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, type: 'B', color: '#7dcfff', radius: 4 }); currentB++; }
+            while (currentB > targetB) { particles.splice(particles.findIndex(p => p.type === 'B'), 1); currentB--; }
         }
-
-        function createParticle(type, color) { return { x: Math.random() * (canvas.width - 20) + 10, y: Math.random() * (canvas.height - 100) + 50, vx: (Math.random() - 0.5) * 2, vy: (Math.random() - 0.5) * 2, type: type, color: color, radius: 4 }; }
 
         function drawCanvas() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            let pistonY = canvas.height - (state.V / 50) * (canvas.height - 40); pistonY = Math.max(20, Math.min(canvas.height - 30, pistonY));
-            ctx.fillStyle = "#9ece6a"; ctx.fillRect(5, pistonY, canvas.width - 10, 15); ctx.fillStyle = "#414868"; ctx.fillRect(canvas.width/2 - 5, 0, 10, pistonY);
+            let pistonY = canvas.height - (state.V / 50) * (canvas.height - 40);
+            ctx.fillStyle = "#9ece6a"; ctx.fillRect(5, pistonY, canvas.width - 10, 15);
             let speedMult = Math.sqrt(state.T) * 0.15;
             particles.forEach(p => {
                 p.x += p.vx * speedMult; p.y += p.vy * speedMult;
-                if (p.x < p.radius || p.x > canvas.width - p.radius) p.vx *= -1; if (p.y > canvas.height - p.radius) p.vy *= -1; 
-                if (p.y < pistonY + 15 + p.radius) { p.y = pistonY + 15 + p.radius; p.vy = Math.abs(p.vy); }
-                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2); ctx.fillStyle = p.color; ctx.fill();
+                if (p.x < 5 || p.x > 275) p.vx *= -1; 
+                if (p.y > 275) p.vy *= -1; 
+                if (p.y < pistonY + 15) { p.y = pistonY + 16; p.vy = Math.abs(p.vy); }
+                ctx.beginPath(); ctx.arc(p.x, p.y, p.radius, 0, Math.PI*2); ctx.fillStyle = p.color; ctx.fill();
             }); requestAnimationFrame(drawCanvas);
         }
 
-        function resetGases() { state.nA = 0; state.nB = 0; state.P = 0; updateParticleCount(); updateUI(); }
-        function setMode(mode) { gameActive = false; clearInterval(timer); document.getElementById('mission-panel').style.display = 'none'; document.getElementById('records-panel').style.display = 'none'; }
-        function toggleRecords() { const panel = document.getElementById('records-panel'); panel.style.display = panel.style.display === 'block' ? 'none' : 'block'; if(panel.style.display === 'block') updateRecordsUI(); }
+        window.resetGases = () => { state.nA = 0; state.nB = 0; state.P = 0; updateParticleCount(); updateUI(); };
 
-        async function updateRecordsUI() {
-            const list = document.getElementById('record-list');
-            list.innerHTML = '<li>Cargando...</li>';
-            try {
-                const response = await fetch('/.netlify/functions/records');
-                const records = await response.json();
-                list.innerHTML = records.map((r, i) => `<li><span>${i+1}. ${r.name}</span><span style="color:var(--correct)">${r.score} pts</span></li>`).join('');
-            } catch (e) { list.innerHTML = '<li>No se pudieron cargar los récords globales.</li>'; }
-        }
-
-        function startMissions() {
-            gameActive = true; currentMission = 0; totalScore = 0;
-            document.getElementById('mission-panel').style.display = 'block';
-            state = { P: 1.0, V: 22.4, T: 273, nA: 1.0, nB: 0.0 };
-            toggleLock('none'); updateParticleCount(); updateUI(); loadMission();
-        }
-
-        function loadMission() {
-            if (currentMission >= missions.length) { alert("¡Felicidades! Puntuación final: " + totalScore); setMode('libre'); return; }
-            document.getElementById('mission-desc').innerText = missions[currentMission].text;
-            document.getElementById('mission-tracker').innerText = `${currentMission + 1}/${missions.length}`;
-            timeLeft = 120;
-            clearInterval(timer);
-            timer = setInterval(() => {
-                timeLeft--; document.getElementById('time-display').innerText = timeLeft;
-                if (timeLeft <= 0) { alert("Tiempo agotado"); setMode('libre'); }
-            }, 1000);
-        }
-
-        function checkMissionCompleted() {
-            if (missions[currentMission].check()) {
-                totalScore += timeLeft;
-                beep(800, 0.1);
-                currentMission++;
-                loadMission();
-            }
-        }
-
-        updateParticleCount(); updateUI(); requestAnimationFrame(drawCanvas);
+        // Inicio
+        updateParticleCount(); updateUI(); drawCanvas();
     </script>
 </body>
 </html>
