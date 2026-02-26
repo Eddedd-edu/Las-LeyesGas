@@ -34,6 +34,7 @@
         }
         .controls button:active { transform: scale(0.95); }
         button.btn-special { background-color: #e0af68; }
+        button.btn-reset { background-color: #bb9af7; }
 
         #mission-panel { display: none; width: 100%; max-width: 800px; background: #1a1b26; border: 2px solid var(--correct); padding: 15px; border-radius: 12px; margin-bottom: 15px; text-align: center; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .mission-title { color: var(--correct); font-size: 1.1rem; margin: 0 0 5px 0; text-transform: uppercase; }
@@ -93,6 +94,7 @@
         <p id="subtitle">Simulador de Gases Ideales</p>
         <div class="controls">
             <button onclick="setMode('libre')" class="btn-special">⚛️ Modo Libre</button>
+            <button onclick="resetSTP()" class="btn-reset">🔄 Reset STP</button>
             <button onclick="startMissions()" style="background-color: var(--correct); color: #1a1b26;">🎯 Misiones Exactas</button>
             <button onclick="toggleRecords()" style="background-color: var(--warning); color: #1a1b26;">🏆 Top 5 Global</button>
         </div>
@@ -240,6 +242,18 @@
             clearInterval(timer); 
             document.getElementById('mission-panel').style.display = 'none'; 
             document.getElementById('records-panel').style.display = 'none'; 
+        };
+
+        window.resetSTP = () => {
+            lockedVar = 'none';
+            ['P', 'V', 'T'].forEach(v => {
+                const btn = document.getElementById(`lock-${v}`);
+                btn.innerText = "🔓 Desbloqueado";
+                btn.classList.remove('locked');
+            });
+            state = { P: 1.0, V: 22.4, T: 273, nA: 1.0, nB: 0.0 };
+            updateParticleCount();
+            updateUI();
         };
 
         window.toggleRecords = async () => {
