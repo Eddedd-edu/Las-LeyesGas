@@ -96,7 +96,7 @@
             <button onclick="setMode('libre')" class="btn-special">⚛️ Modo Libre</button>
             <button onclick="resetSTP()" class="btn-reset">🔄 Reset STP</button>
             <button onclick="startMissions()" style="background-color: var(--correct); color: #1a1b26;">🎯 Misiones Exactas</button>
-            <button onclick="toggleRecords()" style="background-color: var(--warning); color: #1a1b26;">🏆 Top 5 Global</button>
+            <button onclick="toggleRecords()" style="background-color: var(--warning); color: #1a1b26;">🏆 Top  Global</button>
         </div>
     </header>
 
@@ -282,7 +282,7 @@
             const list = document.getElementById('record-list');
             list.innerHTML = '<li>Cargando...</li>';
             try {
-                const q = query(collection(db, "records"), orderBy("score", "desc"), limit(5));
+                const q = query(collection(db, "records"), orderBy("score", "desc"), limit(100));
                 const querySnapshot = await getDocs(q);
                 list.innerHTML = '';
                 if (querySnapshot.empty) { list.innerHTML = '<li>No hay récords aún.</li>'; }
